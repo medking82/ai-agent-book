@@ -68,6 +68,9 @@ jobs:
       - name: Install the package
         run: python -m pip install -e ".[dev]"
 
+      - name: Install documentation test dependencies
+        run: python -m pip install -r requirements-docs.txt
+
       - name: Run registry tests
         env:
           MOONSHOT_API_KEY: ""
