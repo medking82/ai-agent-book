@@ -579,7 +579,7 @@ A principal conclusão é que **a economia do cache não é uma otimização pos
 
 ### O cache KV não precisa ser descartável: “anotações” editáveis e combináveis
 
-(O trecho a seguir é uma leitura avançada opcional sobre pesquisas recentes. Pode ser ignorado em uma primeira leitura sem prejudicar a compreensão do restante deste capítulo; as três conclusões práticas anteriores são a base.)
+(O trecho a seguir é uma leitura avançada opcional sobre pesquisas recentes. Pode ser ignorado em uma primeira leitura (pule direto para a próxima subseção) sem prejudicar a compreensão do restante deste capítulo; as três conclusões práticas anteriores são a base.)
 
 Até aqui, esta seção partiu de uma regra rígida: se um único byte do prefixo for alterado, todo o cache subsequente será invalidado. Essa regra vale para os mecanismos de inferência atuais, mas talvez não seja inevitável. Uma linha de pesquisa recente parte de uma observação contraintuitiva[^ch2-2]: durante a fase de prefill, o modelo se comporta como se estivesse “fazendo anotações”. Ao ler um campo do contexto (por exemplo, “Cidade do usuário: Pequim”), ele não se limita a armazená-lo literalmente no cache. Em vez disso, registra nos estados KV posteriores representações da **conclusão** — o que esse campo significa. Medições mostram que os estados KV dos tokens do **próprio** campo muitas vezes contribuem com menos de 1% para a decisão final; o que mais influencia a saída são as “anotações” deixadas por esse campo nos estados subsequentes.
 
@@ -590,6 +590,8 @@ A analogia com anotações à margem é útil. Ao ler um documento longo, não s
 Para agentes, isso significa que talvez não seja sempre necessário descartar e reconstruir contextos longos quando houver mudanças nas ferramentas, nos campos de memória ou no estado de execução. Em princípio, seria possível tornar o contexto mutável sem perder os benefícios do cache, convertendo sua montagem de uma recomputação O(L²) em uma concatenação O(L) de anotações. Essa abordagem ainda está em fase de pesquisa; as três conclusões práticas apresentadas anteriormente nesta seção continuam sendo os princípios padrão para os sistemas de produção atuais.
 
 [^ch2-2]: Li, Bojie. *Models Take Notes at Prefill: KV Cache Can Be Editable and Composable.* arXiv:2606.17107, 2026.
+
+### Olhando adiante: da mecânica do cache ao design do conteúdo do contexto
 
 Agora que entendemos como o contexto é processado e armazenado no cache, a próxima questão é como projetar o conteúdo em si. As seções seguintes discutem o que incluir no contexto e como organizá-lo, em três linhas relacionadas:
 
@@ -707,7 +709,7 @@ Em geral, as definições de ferramentas formam um prefixo estático com o promp
 [^ch2-toolsearch-cc]: Anthropic, “Scale with MCP tool search”, documentação do Claude Code. https://code.claude.com/docs/en/mcp  
 [^ch2-toolsearch-codex]: código-fonte do OpenAI Codex CLI, `codex-rs/core/templates/search_tool/tool_description.md`: “Algumas ferramentas talvez não tenham sido fornecidas previamente; nesse caso, use esta ferramenta (tool_search) para buscar e carregar as ferramentas necessárias.”
 
-Por que acrescentar conteúdo ao final não invalida o cache? Isso decorre diretamente da propriedade de prefixo do cache KV discutida anteriormente: com atenção causal, os pares de chave e valor de cada token dependem apenas dos tokens anteriores. Portanto, acrescentar conteúdo ao final não altera os valores K e V de nenhum token já armazenado em cache. O novo esquema da ferramenta é calculado uma única vez, quando aparece pela primeira vez — uma gravação única no cache — e então passa a integrar o “prefixo”, que cresce continuamente e continua gerando acertos no cache em todas as rodadas seguintes. Não se trata de “pré-compilação”, mas de uma injeção somente por acréscimo.
+Por que acrescentar conteúdo ao final não invalida o cache? Isso decorre diretamente da propriedade de prefixo do cache KV discutida anteriormente: com atenção causal, o estado oculto de cada token em cada camada (e, por consequência, os K e V calculados a partir dele) depende apenas do próprio token e dos tokens anteriores, nunca dos posteriores. Portanto, acrescentar conteúdo ao final não altera os valores K e V de nenhum token já armazenado em cache. O novo esquema da ferramenta é calculado uma única vez, quando aparece pela primeira vez — uma gravação única no cache — e então passa a integrar o “prefixo”, que cresce continuamente e continua gerando acertos no cache em todas as rodadas seguintes. Não se trata de “pré-compilação”, mas de uma injeção somente por acréscimo.
 
 Há um ponto fácil de interpretar de forma equivocada: um esquema descoberto é acrescentado apenas uma vez. Depois disso, permanece em sua posição original na trajetória, e as mensagens posteriores são adicionadas **depois** dele; o esquema não volta a ser movido para o final a cada rodada.
 

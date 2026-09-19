@@ -579,7 +579,7 @@ The core insight is that **caching economics is not a post-hoc optimization but 
 
 ### Rethinking KV Cache: Editable, Composable "Notes"
 
-(The following is optional advanced material from current research. It can be skipped on first reading without affecting the rest of this chapter; the three practical conclusions above are the foundation.)
+(The following is optional advanced material from current research. It can be skipped on first reading (jump ahead to the next subsection) without affecting the rest of this chapter; the three practical conclusions above are the foundation.)
 
 So far, this section has assumed a strict rule: change one byte in the prefix, and the subsequent cache is invalidated. This rule holds in today's inference engines, but it may not be inevitable. A recent line of research starts from a counterintuitive observation[^ch2-2]: during the prefill phase, the model behaves as if it is "taking notes." When it reads a field in the context (e.g., "User's city: Beijing"), it does not simply cache that field verbatim. Instead, it writes downstream representations of the **conclusion**—what this field means—into later KV states. Measurements show that the KV states of the field's **own** tokens often contribute less than 1% to the final decision; what influences the output more are the downstream "notes" left by that field.
 
@@ -590,6 +590,8 @@ The margin-note analogy is useful here. When reading a long document, one does n
 For Agents, the implication is that long contexts may not always need to be torn down and rebuilt when tools, memory fields, or runtime state change. In principle, this could make context mutable while preserving some caching benefits, turning context assembly from O(L²) recomputation into O(L) note splicing. This is still research-stage work; the three practical conclusions earlier in this section remain the default principles for current production systems.
 
 [^ch2-2]: Li, Bojie. *Models Take Notes at Prefill: KV Cache Can Be Editable and Composable.* arXiv:2606.17107, 2026.
+
+### Looking Ahead: From Cache Mechanics to Designing Context Content
 
 Now that we understand how context is processed and cached, the next question is how to design the content itself. The following sections discuss what belongs in context and how to organize it, along three related threads:
 
@@ -707,7 +709,7 @@ Tool definitions usually form a static prefix with the system prompt. Most LLM A
 [^ch2-toolsearch-cc]: Anthropic, "Scale with MCP tool search", Claude Code documentation. https://code.claude.com/docs/en/mcp
 [^ch2-toolsearch-codex]: OpenAI Codex CLI source, `codex-rs/core/templates/search_tool/tool_description.md`: "Some of the tools may not have been provided to you upfront, and you should use this tool (tool_search) to search for the required tools and load them."
 
-Why does appending at the end not break the cache? This follows directly from the prefix property of the KV Cache discussed earlier: causal attention means each token's key-value pairs depend only on the tokens before it, so appending new content at the end changes none of the cached tokens' K and V—the newly added tool schema is computed once on its first appearance (a one-time cache write) and thereafter joins the ever-growing "prefix," hitting the cache on every subsequent turn. This is not "pre-compilation" but append-only injection.
+Why does appending at the end not break the cache? This follows directly from the prefix property of the KV Cache discussed earlier: causal attention means each token's hidden state at every layer (and hence the K and V computed from it) depends only on that token itself and the tokens before it, never on the tokens after it, so appending new content at the end changes none of the cached tokens' K and V—the newly added tool schema is computed once on its first appearance (a one-time cache write) and thereafter joins the ever-growing "prefix," hitting the cache on every subsequent turn. This is not "pre-compilation" but append-only injection.
 
 One point is easy to misunderstand: a discovered schema is appended only once. It then remains at its original position in the trajectory, and later messages are added **after** it; the schema is not moved to the end again on every turn.
 

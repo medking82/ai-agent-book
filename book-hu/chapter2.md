@@ -579,7 +579,7 @@ A tervezési döntések központi tanulsága, hogy **egy Agent architektúrájá
 
 ### A KV Cache Nem Feltétlenül Egyszeri: Szerkeszthető, Összeállítható "Jegyzetek"
 
-(A következők opcionális, haladó anyag a jelenlegi kutatásból. Első olvasásra kihagyható anélkül, hogy a fejezet hátralévő részét érintené; a fenti három gyakorlati következtetés az alap.)
+(A következők opcionális, haladó anyag a jelenlegi kutatásból. Első olvasásra kihagyható (közvetlenül a következő alszakaszra ugorva) anélkül, hogy a fejezet hátralévő részét érintené; a fenti három gyakorlati következtetés az alap.)
 
 Eddig ez a szakasz egy szigorú szabályt feltételezett: változtass meg egy bájtot az előtagban, és az azt követő gyorsítótár érvénytelenül. Ez a szabály a mai következtető motorokban érvényes, de nem feltétlenül elkerülhetetlen. Egy friss kutatási irány egy ellentmondásos megfigyelésből indul ki[^ch2-2]: a prefill fázisban a modell úgy viselkedik, mintha "jegyzeteket készítene." Amikor elolvas egy mezőt a kontextusban (pl. "Felhasználó városa: Peking"), nem egyszerűen szó szerint gyorsítótárazza azt a mezőt. Ehelyett lejjebb írja a "következtetés" downstream reprezentációit – hogy mit jelent ez a mező – a későbbi KV állapotokba. A mérések azt mutatják, hogy a mező "saját" tokenjeinek KV állapotai gyakran kevesebb mint 1%-ban járulnak hozzá a végső döntéshez; ami jobban befolyásolja a kimenetet, azok a mező által hátrahagyott downstream "jegyzetek."
 
@@ -590,6 +590,8 @@ A lapszéli jegyzet analógia hasznos itt. Amikor egy hosszú dokumentumot olvas
 Az ügynökök számára a következmény az, hogy a hosszú kontextusoknak nem mindig kell lebontani és újraépíteni, amikor az eszközök, memóriamezők vagy futásidejű állapot megváltozik. Elvben ez változtatható kontextust tehet lehetővé, miközben megőrzi a gyorsítótárazás előnyeit, a kontextus összeállítását O(L²) újraszámításról O(L) jegyzet-összeillesztésre változtatva. Ez még kutatási stádiumban lévő munka; a szakaszban korábban bemutatott három gyakorlati következtetés marad az alapelv a jelenlegi production rendszerek számára.
 
 [^ch2-2]: Li, Bojie. *Models Take Notes at Prefill: KV Cache Can Be Editable and Composable.* arXiv:2606.17107, 2026.
+
+### Kitekintés: A Gyorsítótár Mechanikájától a Kontextus Tartalmának Tervezéséig
 
 Most, hogy megértettük, hogyan dolgozzák fel és gyorsítótárazza a kontextust, a következő kérdés az, hogyan tervezzük meg magát a tartalmat. A következő szakaszok azt tárgyalják, hogy mi tartozik a kontextusba és hogyan szervezzük azt, három összefüggő szál mentén:
 
@@ -707,7 +709,7 @@ A szerszámdefiníciók általában egy statikus előtagot képeznek a rendszerp
 [^ch2-toolsearch-cc]: Anthropic, "Scale with MCP tool search", Claude Code dokumentáció. https://code.claude.com/docs/en/mcp
 [^ch2-toolsearch-codex]: OpenAI Codex CLI forrás, `codex-rs/core/templates/search_tool/tool_description.md`: "Előfordulhat, hogy egyes eszközöket nem biztosítottak előzetesen, ezért ezt az eszközt (tool_search) kell használnia a szükséges eszközök megkereséséhez és betöltéséhez."
 
-Miért nem töri meg a gyorsítótárat a tartalom végére fűzése? Ez közvetlenül a KV-gyorsítótár korábban tárgyalt előtagtulajdonságából következik: az oksági figyelem miatt minden token kulcs-érték párja csak az előtte álló tokenektől függ. A végére illesztett új tartalom ezért nem változtatja meg a már gyorsítótárazott tokenek K és V értékeit. Az új eszközséma az első megjelenésekor egyszer számítódik ki – ez egyszeri gyorsítótár-írás –, majd a folyamatosan növekvő előtag részévé válik, és minden későbbi körben gyorsítótár-találatot ad. Ez nem „előfordítás”, hanem kizárólag hozzáfűzés.
+Miért nem töri meg a gyorsítótárat a tartalom végére fűzése? Ez közvetlenül a KV-gyorsítótár korábban tárgyalt előtagtulajdonságából következik: az oksági figyelem miatt minden token rejtett állapota minden rétegben (és így a belőle számított K és V is) csak magától a tokentől és az előtte álló tokenektől függ, az utána következő tokenektől soha. A végére illesztett új tartalom ezért nem változtatja meg a már gyorsítótárazott tokenek K és V értékeit. Az új eszközséma az első megjelenésekor egyszer számítódik ki – ez egyszeri gyorsítótár-írás –, majd a folyamatosan növekvő előtag részévé válik, és minden későbbi körben gyorsítótár-találatot ad. Ez nem „előfordítás”, hanem kizárólag hozzáfűzés.
 
 A „végéhez fűzés” csak abban a körben történik, amelyben az eszközt felfedezik. Ezután a sémablokk a pályán belüli eredeti helyén marad; az új üzenetek utána kerülnek, a blokkot pedig nem helyezik át minden körben az aktuális végére.
 

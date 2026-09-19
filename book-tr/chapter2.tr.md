@@ -575,7 +575,7 @@ Bu tasarım kararlarının temel çıkarımı şudur: **bir Agent mimarisi tasar
 
 ### KV Cache Zorunlu Olarak Tek Seferlik Değildir: Düzenlenebilir, Birleştirilebilir "Notlar"
 
-(Aşağıdaki içerik, araştırma cephesinden ek okumadır—isteğe bağlı ileri düzey materyal. İlk okumada atlanabilir, bu bölümün geri kalanının anlaşılmasını etkilemez; yukarıdaki üç pratik sonuç, kavranması gereken temeldir.)
+(Aşağıdaki içerik, araştırma cephesinden ek okumadır—isteğe bağlı ileri düzey materyal. İlk okumada atlanabilir (doğrudan bir sonraki alt bölüme geçilebilir), bu bölümün geri kalanının anlaşılmasını etkilemez; yukarıdaki üç pratik sonuç, kavranması gereken temeldir.)
 
 Buraya kadar bu bölüm, katı bir kurala dayandırılarak inşa edildi: ön ekte bir bayt değiştirin, sonraki tüm cache geçersiz olur. Bu kural günümüzün çıkarım motorlarında geçerlidir, ama yazar bunun zorunlu olarak **kaçınılmaz** olmadığını belirtmek istiyor. Bunu gevşetmenin başlangıç noktası, sezgiye aykırı bir gözlemdir[^ch2-2]: prefill aşamasında model aslında "not tutuyor". Context'te bir alanı okuduğunda (örn. "Kullanıcının şehri: Pekin"), o alanı olduğu gibi önbelleğe almaz; bunun yerine, ilerledikçe **sonucu**—"bu alanın ne anlama geldiğini"—her sonraki katmanın KV durumlarına yazar. Ölçümler, alanın **kendi** birkaç token'ının KV'sinin nihai karara genellikle %1'den az katkıda bulunduğunu gösteriyor—çıktıyı gerçekten etkileyen şey, alt katmanlarda bıraktığı "okuma notlarıdır".
 
@@ -586,6 +586,8 @@ Bir benzetme yapmak gerekirse: kalın bir doküman okurken, bir gerçeği her de
 Agent'lar için önemi şudur: tekrar tekrar yeniden inşa edilen uzun context—bir araç kümesini değiştirmek, bir bellek alanını güncellemek, yeni bir durum enjekte etmek (tam olarak bir sonraki bölümün durum çubuğu hakkında yapacağı şey)—her turda yıkılıp yeniden inşa edilmesi gerekmeyebilir. Bu, "değiştirilebilir olan ama önbellekleme faydalarının kaldığı context" olasılığına işaret ediyor: context montajını O(L²) yeniden hesaplamadan O(L) "not ekleme"ye dönüştürmek. Bu hâlâ araştırma aşamasındadır; bu bölümdeki önceki üç pratik sonuç, günümüz üretim sistemlerinde izlenecek varsayılan ilkeler olarak kalmaya devam ediyor.
 
 [^ch2-2]: Li, Bojie. *Models Take Notes at Prefill: KV Cache Can Be Editable and Composable.* arXiv:2606.17107, 2026.
+
+### İleriye Bakış: Önbellek Mekanizmasından Context İçeriğinin Tasarımına
 
 Artık context'in nasıl işlendiğini ve önbelleğe alındığını bildiğimize göre, doğal bir sonraki soru içeriğin kendisinin nasıl tasarlanacağıdır. Aşağıdaki bölümler, context'e tam olarak nelerin girdiği ve bunun nasıl organize edileceği etrafında, birbirinden nispeten bağımsız üç konu üzerinden ilerler:
 
@@ -703,7 +705,7 @@ Bir ekleme gerekiyor: "araç tanımları system prompt ile birlikte statik bir �
 [^ch2-toolsearch-cc]: Anthropic, "Scale with MCP tool search", Claude Code dokümantasyonu. https://code.claude.com/docs/en/mcp
 [^ch2-toolsearch-codex]: OpenAI Codex CLI kaynak kodu, `codex-rs/core/templates/search_tool/tool_description.md`: "Bazı araçlar size önceden sağlanmamış olabilir ve gereken araçları aramak ve yüklemek için bu aracı (tool_search) kullanmalısınız."
 
-Sona eklemek cache'i neden bozmaz? Bu, daha önce tartışılan KV Cache'in ön ek özelliğinden doğrudan kaynaklanır: nedensel attention (causal attention), her token'ın anahtar-değer çiftlerinin yalnızca kendisinden önceki token'lara bağlı olduğu anlamına gelir, bu yüzden sona yeni içerik eklemek önbelleğe alınmış token'ların K ve V'sinden hiçbirini değiştirmez—yeni eklenen araç şeması ilk göründüğünde bir kez hesaplanır (tek seferlik bir cache yazımı) ve ardından sürekli büyüyen "ön eğe" katılır, sonraki her turda cache'e isabet eder. Bu bir "ön derleme" değil, yalnızca ekleme (append-only) enjeksiyonudur.
+Sona eklemek cache'i neden bozmaz? Bu, daha önce tartışılan KV Cache'in ön ek özelliğinden doğrudan kaynaklanır: nedensel attention (causal attention), her token'ın her katmandaki gizli durumunun (ve dolayısıyla ondan hesaplanan K ve V'nin) yalnızca token'ın kendisine ve kendisinden önceki token'lara bağlı olduğu, sonraki token'lardan hiç etkilenmediği anlamına gelir, bu yüzden sona yeni içerik eklemek önbelleğe alınmış token'ların K ve V'sinden hiçbirini değiştirmez—yeni eklenen araç şeması ilk göründüğünde bir kez hesaplanır (tek seferlik bir cache yazımı) ve ardından sürekli büyüyen "ön eğe" katılır, sonraki her turda cache'e isabet eder. Bu bir "ön derleme" değil, yalnızca ekleme (append-only) enjeksiyonudur.
 
 “Sona ekleme” yalnızca aracın keşfedildiği turda gerçekleşir. Bundan sonra şema bloğu trajectory içindeki özgün konumunda sabit kalır; yeni mesajlar onun ardından eklenir ve blok her turda en yeni sona taşınmaz.
 
